@@ -7,10 +7,8 @@ import crypto from 'crypto';
 import { userDb, apiKeysDb, githubTokensDb } from '../database/db.js';
 import { addProjectManually } from '../projects.js';
 import { queryClaudeSDK } from '../claude-sdk.js';
-import { spawnCursor } from '../cursor-cli.js';
-import { queryCodex } from '../openai-codex.js';
 import { Octokit } from '@octokit/rest';
-import { CLAUDE_MODELS, CURSOR_MODELS, CODEX_MODELS } from '../../shared/modelConstants.js';
+import { CLAUDE_MODELS } from '../../shared/modelConstants.js';
 import { IS_PLATFORM } from '../constants/config.js';
 
 const router = express.Router();
@@ -951,26 +949,6 @@ router.post('/', validateExternalApiKey, async (req, res) => {
         permissionMode: 'bypassPermissions' // Bypass all permissions for API calls
       }, writer);
 
-    } else if (provider === 'cursor') {
-      console.log('🖱️ Starting Cursor CLI session');
-
-      await spawnCursor(message.trim(), {
-        projectPath: finalProjectPath,
-        cwd: finalProjectPath,
-        sessionId: null, // New session
-        model: model || undefined,
-        skipPermissions: true // Bypass permissions for Cursor
-      }, writer);
-    } else if (provider === 'codex') {
-      console.log('🤖 Starting Codex SDK session');
-
-      await queryCodex(message.trim(), {
-        projectPath: finalProjectPath,
-        cwd: finalProjectPath,
-        sessionId: null,
-        model: model || CODEX_MODELS.DEFAULT,
-        permissionMode: 'bypassPermissions'
-      }, writer);
     }
 
     // Handle GitHub branch and PR creation after successful agent completion

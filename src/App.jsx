@@ -29,15 +29,11 @@ import QuickSettingsPanel from './components/QuickSettingsPanel';
 
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
-import { TaskMasterProvider } from './contexts/TaskMasterContext';
-import { TasksSettingsProvider } from './contexts/TasksSettingsContext';
 import { WebSocketProvider, useWebSocket } from './contexts/WebSocketContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useVersionCheck } from './hooks/useVersionCheck';
 import useLocalStorage from './hooks/useLocalStorage';
 import { api, authenticatedFetch } from './utils/api';
-import { I18nextProvider, useTranslation } from 'react-i18next';
-import i18n from './i18n/config.js';
 
 
 // ! Move to a separate file called AppContent.ts
@@ -45,7 +41,7 @@ import i18n from './i18n/config.js';
 function AppContent() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
-  const { t } = useTranslation('common');
+  const t = (key) => key; // i18n stripped
   // * This is a tracker for avoiding excessive re-renders during development 
   const renderCountRef = useRef(0);
   // console.log(`AppContent render count: ${renderCountRef.current++}`);
@@ -56,7 +52,7 @@ function AppContent() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'files'
+  const [activeTab, setActiveTab] = useState('terminal'); // 'terminal', 'git', 'chat', 'files'
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -258,12 +254,7 @@ function AppContent() {
             }
 
             if (selectedSession) {
-              const allSessions = [
-                ...(updatedSelectedProject.sessions || []),
-                ...(updatedSelectedProject.codexSessions || []),
-                ...(updatedSelectedProject.cursorSessions || [])
-              ];
-              const updatedSelectedSession = allSessions.find(s => s.id === selectedSession.id);
+              const updatedSelectedSession = updatedSelectedProject.sessions?.find(s => s.id === selectedSession.id);
               if (!updatedSelectedSession) {
                 setSelectedSession(null);
               }
@@ -287,27 +278,6 @@ function AppContent() {
       const response = await api.projects();
       const data = await response.json();
       
-      // Always fetch Cursor sessions for each project so we can combine views
-      for (let project of data) {
-        try {
-          const url = `/api/cursor/sessions?projectPath=${encodeURIComponent(project.fullPath || project.path)}`;
-          const cursorResponse = await authenticatedFetch(url);
-          if (cursorResponse.ok) {
-            const cursorData = await cursorResponse.json();
-            if (cursorData.success && cursorData.sessions) {
-              project.cursorSessions = cursorData.sessions;
-            } else {
-              project.cursorSessions = [];
-            }
-          } else {
-            project.cursorSessions = [];
-          }
-        } catch (error) {
-          console.error(`Error fetching Cursor sessions for project ${project.name}:`, error);
-          project.cursorSessions = [];
-        }
-      }
-      
       // Optimize to preserve object references when data hasn't changed
       setProjects(prevProjects => {
         // If no previous projects, just set the new data
@@ -326,8 +296,7 @@ function AppContent() {
             newProject.displayName !== prevProject.displayName ||
             newProject.fullPath !== prevProject.fullPath ||
             JSON.stringify(newProject.sessionMeta) !== JSON.stringify(prevProject.sessionMeta) ||
-            JSON.stringify(newProject.sessions) !== JSON.stringify(prevProject.sessions) ||
-            JSON.stringify(newProject.cursorSessions) !== JSON.stringify(prevProject.cursorSessions)
+            JSON.stringify(newProject.sessions) !== JSON.stringify(prevProject.sessions)
           );
         }) || data.length !== prevProjects.length;
         
@@ -363,19 +332,8 @@ function AppContent() {
         if (session) {
           setSelectedProject(project);
           setSelectedSession({ ...session, __provider: 'claude' });
-          // Only switch to chat tab if we're loading a different session
           if (shouldSwitchTab) {
-            setActiveTab('chat');
-          }
-          return;
-        }
-        // Also check Cursor sessions
-        const cSession = project.cursorSessions?.find(s => s.id === sessionId);
-        if (cSession) {
-          setSelectedProject(project);
-          setSelectedSession({ ...cSession, __provider: 'cursor' });
-          if (shouldSwitchTab) {
-            setActiveTab('chat');
+            setActiveTab('terminal');
           }
           return;
         }
@@ -398,18 +356,9 @@ function AppContent() {
 
   const handleSessionSelect = (session) => {
     setSelectedSession(session);
-    // Only switch to chat tab when user explicitly selects a session
-    // This prevents tab switching during automatic updates
+    // Only switch to terminal tab when user explicitly selects a session
     if (activeTab !== 'git' && activeTab !== 'preview') {
-      setActiveTab('chat');
-    }
-
-    // For Cursor sessions, we need to set the session ID differently
-    // since they're persistent and not created by Claude
-    const provider = localStorage.getItem('selected-provider') || 'claude';
-    if (provider === 'cursor') {
-      // Cursor sessions have persistent IDs
-      sessionStorage.setItem('cursorSessionId', session.id);
+      setActiveTab('terminal');
     }
 
     // Only close sidebar on mobile if switching to a different project
@@ -429,7 +378,7 @@ function AppContent() {
   const handleNewSession = (project) => {
     setSelectedProject(project);
     setSelectedSession(null);
-    setActiveTab('chat');
+    setActiveTab('terminal');
     navigate('/');
     if (isMobile) {
       setSidebarOpen(false);
@@ -582,7 +531,7 @@ function AppContent() {
 
   // Version Upgrade Modal Component
   const VersionUpgradeModal = () => {
-    const { t } = useTranslation('common');
+    const t = (key) => key;
     const [isUpdating, setIsUpdating] = useState(false);
     const [updateOutput, setUpdateOutput] = useState('');
     const [updateError, setUpdateError] = useState('');
@@ -985,26 +934,20 @@ function AppContent() {
 // Root App component with router
 function App() {
   return (
-    <I18nextProvider i18n={i18n}>
-      <ThemeProvider>
-        <AuthProvider>
-          <WebSocketProvider>
-            <TasksSettingsProvider>
-              <TaskMasterProvider>
-                <ProtectedRoute>
-                  <Router basename={window.__ROUTER_BASENAME__ || ''}>                                                                                                      
-                    <Routes>
-                      <Route path="/" element={<AppContent />} />
-                      <Route path="/session/:sessionId" element={<AppContent />} />
-                    </Routes>
-                  </Router>
-                </ProtectedRoute>
-              </TaskMasterProvider>
-            </TasksSettingsProvider>
-          </WebSocketProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </I18nextProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <WebSocketProvider>
+          <ProtectedRoute>
+            <Router basename={window.__ROUTER_BASENAME__ || ''}>
+              <Routes>
+                <Route path="/" element={<AppContent />} />
+                <Route path="/session/:sessionId" element={<AppContent />} />
+              </Routes>
+            </Router>
+          </ProtectedRoute>
+        </WebSocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
