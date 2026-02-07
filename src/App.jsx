@@ -134,6 +134,60 @@ function AppContent() {
     fetchProjects();
   }, []);
 
+  // Auto-select project based on Overleaf ?project= URL parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const overleafProjectId = urlParams.get('project');
+    if (!overleafProjectId || projects.length === 0) return;
+
+    // Check if already selected
+    if (selectedProject) return;
+
+    // Try to find the project by matching fullPath against resolved Overleaf ID
+    const resolveAndSelect = async () => {
+      try {
+        const response = await authenticatedFetch(
+          `/api/projects/resolve-overleaf?id=${encodeURIComponent(overleafProjectId)}`
+        );
+        if (!response.ok) return;
+        const { path: resolvedPath, name: dirName } = await response.json();
+
+        // Find matching project in the loaded list
+        let match = projects.find(
+          (p) => p.fullPath === resolvedPath || p.path === resolvedPath
+        );
+
+        if (!match) {
+          // Not in project list yet — register it
+          try {
+            const addResponse = await authenticatedFetch('/api/projects/create-workspace', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ workspaceType: 'existing', path: resolvedPath }),
+            });
+            if (addResponse.ok) {
+              const { project } = await addResponse.json();
+              match = project;
+              // Refresh projects to include the new one
+              await fetchProjects();
+            }
+          } catch {
+            // Best-effort
+          }
+        }
+
+        if (match) {
+          setSelectedProject(match);
+          setActiveTab('terminal');
+        }
+      } catch (err) {
+        console.warn('Could not resolve Overleaf project:', err);
+      }
+    };
+
+    resolveAndSelect();
+  }, [projects]);
+
   // Helper function to determine if an update is purely additive (new sessions/projects)
   // vs modifying existing selected items that would interfere with active conversations
   const isUpdateAdditive = (currentProjects, updatedProjects, selectedProject, selectedSession) => {

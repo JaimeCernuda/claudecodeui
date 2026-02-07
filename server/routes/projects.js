@@ -547,4 +547,42 @@ function cloneGitHubRepository(githubUrl, destinationPath, githubToken = null) {
   });
 }
 
+/**
+ * Resolve an Overleaf project MongoDB ID to its disk path.
+ * Scans WORKSPACES_ROOT for directories containing a .overleaf-id file
+ * that matches the given ID.
+ *
+ * GET /api/projects/resolve-overleaf?id=<mongoId>
+ */
+router.get('/resolve-overleaf', async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id || !/^[a-f0-9]{24}$/.test(id)) {
+      return res.status(400).json({ error: 'Invalid Overleaf project ID' });
+    }
+
+    const rootDir = WORKSPACES_ROOT;
+    const entries = await fs.readdir(rootDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const dirPath = path.join(rootDir, entry.name);
+      const idFilePath = path.join(dirPath, '.overleaf-id');
+      try {
+        const content = await fs.readFile(idFilePath, 'utf-8');
+        if (content.trim() === id) {
+          return res.json({ path: dirPath, name: entry.name });
+        }
+      } catch {
+        // No .overleaf-id file in this directory — skip
+      }
+    }
+
+    return res.status(404).json({ error: 'No project found with that Overleaf ID' });
+  } catch (error) {
+    console.error('Error resolving Overleaf project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
