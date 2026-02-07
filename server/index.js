@@ -892,19 +892,35 @@ function handleShellConnection(ws) {
                 const hasSession = data.hasSession;
                 const provider = data.provider || 'claude';
                 const initialCommand = data.initialCommand;
+                const userId = data.userId || 'default';
                 const isPlainShell = data.isPlainShell || (!!initialCommand && !hasSession) || provider === 'plain-shell';
 
-                // Login commands (Claude/Cursor auth) should never reuse cached sessions
+                // Per-user HOME directory for isolated credentials and session data
+                const userHome = path.join('/data/users', userId);
+                try {
+                    await fsPromises.mkdir(path.join(userHome, '.claude'), { recursive: true });
+                    // Pre-accept bypass permissions if not already done
+                    const claudeJsonPath = path.join(userHome, '.claude.json');
+                    try {
+                        await fsPromises.access(claudeJsonPath);
+                    } catch {
+                        await fsPromises.writeFile(claudeJsonPath, '{"bypassPermissionsModeAccepted":true}', 'utf-8');
+                    }
+                } catch (err) {
+                    console.warn('Could not create user home directory:', err.message);
+                }
+
+                // Login commands should never reuse cached sessions
                 const isLoginCommand = initialCommand && (
                     initialCommand.includes('setup-token') ||
                     initialCommand.includes('auth login')
                 );
 
-                // Include command hash in session key so different commands get separate sessions
+                // Include userId + command hash in session key for isolation
                 const commandSuffix = isPlainShell && initialCommand
                     ? `_cmd_${Buffer.from(initialCommand).toString('base64').slice(0, 16)}`
                     : '';
-                ptySessionKey = `${projectPath}_${sessionId || 'default'}${commandSuffix}`;
+                ptySessionKey = `${userId}_${projectPath}_${sessionId || 'default'}${commandSuffix}`;
 
                 // Kill any existing login session before starting fresh
                 if (isLoginCommand) {
@@ -1013,9 +1029,10 @@ function handleShellConnection(ws) {
                         name: 'xterm-256color',
                         cols: termCols,
                         rows: termRows,
-                        cwd: os.homedir(),
+                        cwd: userHome,
                         env: {
                             ...process.env,
+                            HOME: userHome,
                             TERM: 'xterm-256color',
                             COLORTERM: 'truecolor',
                             FORCE_COLOR: '3',

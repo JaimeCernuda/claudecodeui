@@ -82,6 +82,10 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
           if (fitAddon.current && terminal.current) {
             fitAddon.current.fit();
 
+            // Extract userId from URL query params (passed by Overleaf injector)
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('user') || 'default';
+
             ws.current.send(JSON.stringify({
               type: 'init',
               projectPath: selectedProjectRef.current.fullPath || selectedProjectRef.current.path,
@@ -91,7 +95,8 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
               cols: terminal.current.cols,
               rows: terminal.current.rows,
               initialCommand: initialCommandRef.current,
-              isPlainShell: isPlainShellRef.current
+              isPlainShell: isPlainShellRef.current,
+              userId: userId
             }));
           }
         }, 100);
