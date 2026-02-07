@@ -1077,18 +1077,20 @@ function handleShellConnection(ws) {
                     } else {
                         // Use claude command (default) or initialCommand if provided
                         const command = initialCommand || 'claude';
+                        const skipPermsFlag = process.env.CLAUDE_SKIP_PERMISSIONS === 'true'
+                            ? ' --dangerously-skip-permissions' : '';
                         if (os.platform() === 'win32') {
                             if (hasSession && sessionId) {
                                 // Try to resume session, but with fallback to new session if it fails
-                                shellCommand = `Set-Location -Path "${projectPath}"; claude --resume ${sessionId}; if ($LASTEXITCODE -ne 0) { claude }`;
+                                shellCommand = `Set-Location -Path "${projectPath}"; claude${skipPermsFlag} --resume ${sessionId}; if ($LASTEXITCODE -ne 0) { claude${skipPermsFlag} }`;
                             } else {
-                                shellCommand = `Set-Location -Path "${projectPath}"; ${command}`;
+                                shellCommand = `Set-Location -Path "${projectPath}"; ${command}${skipPermsFlag}`;
                             }
                         } else {
                             if (hasSession && sessionId) {
-                                shellCommand = `cd "${projectPath}" && claude --resume ${sessionId} || claude`;
+                                shellCommand = `cd "${projectPath}" && claude${skipPermsFlag} --resume ${sessionId} || claude${skipPermsFlag}`;
                             } else {
-                                shellCommand = `cd "${projectPath}" && ${command}`;
+                                shellCommand = `cd "${projectPath}" && ${command}${skipPermsFlag}`;
                             }
                         }
                     }

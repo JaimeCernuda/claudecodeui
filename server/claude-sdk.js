@@ -169,6 +169,11 @@ function mapCliOptionsToSDK(options = {}) {
     skipPermissions: false
   };
 
+  // Container-mode bypass via env var
+  if (process.env.CLAUDE_SKIP_PERMISSIONS === 'true') {
+    settings.skipPermissions = true;
+  }
+
   // Handle tool permissions
   if (settings.skipPermissions && permissionMode !== 'plan') {
     // When skipping permissions, use bypassPermissions mode
