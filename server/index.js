@@ -924,6 +924,16 @@ function handleShellConnection(ws) {
                     } catch {
                         await fsPromises.writeFile(claudeJsonPath, '{"bypassPermissionsModeAccepted":true}', 'utf-8');
                     }
+                    // Symlink Claude CLI binary so native installMethod check passes
+                    // (the CLI checks $HOME/.local/bin/claude on startup)
+                    const userClaudeBin = path.join(userHome, '.local', 'bin');
+                    const userClaudeLink = path.join(userClaudeBin, 'claude');
+                    try {
+                        await fsPromises.access(userClaudeLink);
+                    } catch {
+                        await fsPromises.mkdir(userClaudeBin, { recursive: true });
+                        await fsPromises.symlink('/root/.local/bin/claude', userClaudeLink);
+                    }
                 } catch (err) {
                     console.warn('Could not create user home directory:', err.message);
                 }
