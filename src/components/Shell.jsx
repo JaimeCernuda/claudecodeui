@@ -38,6 +38,13 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
   const [lastSessionId, setLastSessionId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Capture userId from URL once (persists across React Router navigations)
+  const userIdRef = useRef(null);
+  if (!userIdRef.current) {
+    const params = new URLSearchParams(window.location.search);
+    userIdRef.current = params.get('user') || 'default';
+  }
+
   const selectedProjectRef = useRef(selectedProject);
   const selectedSessionRef = useRef(selectedSession);
   const initialCommandRef = useRef(initialCommand);
@@ -82,10 +89,6 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
           if (fitAddon.current && terminal.current) {
             fitAddon.current.fit();
 
-            // Extract userId from URL query params (passed by Overleaf injector)
-            const urlParams = new URLSearchParams(window.location.search);
-            const userId = urlParams.get('user') || 'default';
-
             ws.current.send(JSON.stringify({
               type: 'init',
               projectPath: selectedProjectRef.current.fullPath || selectedProjectRef.current.path,
@@ -96,7 +99,7 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
               rows: terminal.current.rows,
               initialCommand: initialCommandRef.current,
               isPlainShell: isPlainShellRef.current,
-              userId: userId
+              userId: userIdRef.current
             }));
           }
         }, 100);

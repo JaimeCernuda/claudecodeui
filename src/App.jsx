@@ -46,10 +46,19 @@ function AppContent() {
   const { ws, sendMessage, latestMessage } = useWebSocket();
   const loadingProgressTimeoutRef = useRef(null);
 
-  // Detect Overleaf mode from URL params
-  const urlParams = new URLSearchParams(window.location.search);
-  const overleafProjectId = urlParams.get('project');
-  const overleafUserId = urlParams.get('user');
+  // Capture Overleaf URL params once on first render.
+  // useRef ensures these persist across React Router navigate() calls
+  // which would otherwise strip ?project=...&user=... from the URL.
+  const overleafParamsRef = useRef(null);
+  if (!overleafParamsRef.current) {
+    const params = new URLSearchParams(window.location.search);
+    overleafParamsRef.current = {
+      projectId: params.get('project'),
+      userId: params.get('user'),
+    };
+  }
+  const overleafProjectId = overleafParamsRef.current.projectId;
+  const overleafUserId = overleafParamsRef.current.userId;
   const isOverleafMode = !!overleafProjectId;
 
   useEffect(() => {
@@ -65,8 +74,6 @@ function AppContent() {
 
   // Auto-select project based on Overleaf ?project= URL parameter
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const overleafProjectId = urlParams.get('project');
     if (!overleafProjectId || projects.length === 0) return;
     if (selectedProject) return;
 

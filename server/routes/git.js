@@ -10,9 +10,13 @@ const router = express.Router();
 const execAsync = promisify(exec);
 
 // Helper function to get the actual project path from the encoded project name
-async function getActualProjectPath(projectName) {
+async function getActualProjectPath(projectName, homeDir = null) {
+  // If it's already an absolute path (e.g. /overleaf-projects/test), use directly
+  if (projectName.startsWith('/')) {
+    return projectName;
+  }
   try {
-    return await extractProjectDirectory(projectName);
+    return await extractProjectDirectory(projectName, homeDir);
   } catch (error) {
     console.error(`Error extracting project directory for ${projectName}:`, error);
     // Fallback to the old method
