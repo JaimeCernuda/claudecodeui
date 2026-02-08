@@ -7,6 +7,14 @@ import { addProjectManually } from '../projects.js';
 
 const router = express.Router();
 
+function getUserHome(req) {
+  const userId = req.headers['x-overleaf-user-id'];
+  if (userId) {
+    return path.join('/data/users', userId);
+  }
+  return os.homedir();
+}
+
 function sanitizeGitError(message, token) {
   if (!message || !token) return message;
   return message.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '***');
@@ -214,7 +222,7 @@ router.post('/create-workspace', async (req, res) => {
       }
 
       // Add the existing workspace to the project list
-      const project = await addProjectManually(absolutePath);
+      const project = await addProjectManually(absolutePath, getUserHome(req));
 
       return res.json({
         success: true,
@@ -279,7 +287,7 @@ router.post('/create-workspace', async (req, res) => {
         }
 
         // Add the cloned repo path to the project list
-        const project = await addProjectManually(clonePath);
+        const project = await addProjectManually(clonePath, getUserHome(req));
 
         return res.json({
           success: true,
@@ -289,7 +297,7 @@ router.post('/create-workspace', async (req, res) => {
       }
 
       // Add the new workspace to the project list (no clone)
-      const project = await addProjectManually(absolutePath);
+      const project = await addProjectManually(absolutePath, getUserHome(req));
 
       return res.json({
         success: true,
@@ -434,7 +442,7 @@ router.get('/clone-progress', async (req, res) => {
     gitProcess.on('close', async (code) => {
       if (code === 0) {
         try {
-          const project = await addProjectManually(clonePath);
+          const project = await addProjectManually(clonePath, getUserHome(req));
           sendEvent('complete', { project, message: 'Repository cloned successfully' });
         } catch (error) {
           sendEvent('error', { message: `Clone succeeded but failed to add project: ${error.message}` });

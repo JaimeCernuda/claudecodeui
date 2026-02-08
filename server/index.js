@@ -43,6 +43,18 @@ import fetch from 'node-fetch';
 import mime from 'mime-types';
 
 import { getProjects, getSessions, getSessionMessages, renameProject, deleteSession, deleteProject, addProjectManually, extractProjectDirectory, clearProjectDirectoryCache } from './projects.js';
+
+/**
+ * Resolve user HOME directory from request headers.
+ * In Overleaf mode, each user gets an isolated HOME at /data/users/{userId}.
+ */
+function getUserHome(req) {
+  const userId = req.headers['x-overleaf-user-id'];
+  if (userId) {
+    return path.join('/data/users', userId);
+  }
+  return os.homedir();
+}
 import { queryClaudeSDK, abortClaudeSDKSession, isClaudeSDKSessionActive, getActiveClaudeSDKSessions, resolveToolApproval } from './claude-sdk.js';
 import gitRoutes from './routes/git.js';
 import authRoutes from './routes/auth.js';
@@ -76,7 +88,15 @@ function broadcastProgress(progress) {
 // Setup file system watcher for Claude projects folder using chokidar
 async function setupProjectsWatcher() {
     const chokidar = (await import('chokidar')).default;
-    const claudeProjectsPath = path.join(os.homedir(), '.claude', 'projects');
+    // In multi-user mode, watch all user HOME dirs; otherwise watch server's own
+    const usersDir = '/data/users';
+    let claudeProjectsPath;
+    try {
+        await fsPromises.access(usersDir);
+        claudeProjectsPath = usersDir;
+    } catch {
+        claudeProjectsPath = path.join(os.homedir(), '.claude', 'projects');
+    }
 
     if (projectsWatcher) {
         projectsWatcher.close();
@@ -120,16 +140,11 @@ async function setupProjectsWatcher() {
                     // Clear project directory cache when files change
                     clearProjectDirectoryCache();
 
-                    // Get updated projects list
-                    const updatedProjects = await getProjects(broadcastProgress);
-
-                    // Notify all connected clients about the project changes
+                    // Notify all connected clients to re-fetch their project list
+                    // (each client fetches with their own userId for proper isolation)
                     const updateMessage = JSON.stringify({
-                        type: 'projects_updated',
-                        projects: updatedProjects,
+                        type: 'projects_refresh',
                         timestamp: new Date().toISOString(),
-                        changeType: eventType,
-                        changedFile: path.relative(claudeProjectsPath, filePath)
                     });
 
                     connectedClients.forEach(client => {
@@ -348,7 +363,8 @@ app.post('/api/system/update', authenticateToken, async (req, res) => {
 
 app.get('/api/projects', authenticateToken, async (req, res) => {
     try {
-        const projects = await getProjects(broadcastProgress);
+        const homeDir = getUserHome(req);
+        const projects = await getProjects(broadcastProgress, homeDir);
         res.json(projects);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -358,7 +374,8 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
 app.get('/api/projects/:projectName/sessions', authenticateToken, async (req, res) => {
     try {
         const { limit = 5, offset = 0 } = req.query;
-        const result = await getSessions(req.params.projectName, parseInt(limit), parseInt(offset));
+        const homeDir = getUserHome(req);
+        const result = await getSessions(req.params.projectName, parseInt(limit), parseInt(offset), homeDir);
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -375,7 +392,8 @@ app.get('/api/projects/:projectName/sessions/:sessionId/messages', authenticateT
         const parsedLimit = limit ? parseInt(limit, 10) : null;
         const parsedOffset = offset ? parseInt(offset, 10) : 0;
         
-        const result = await getSessionMessages(projectName, sessionId, parsedLimit, parsedOffset);
+        const homeDir = getUserHome(req);
+        const result = await getSessionMessages(projectName, sessionId, parsedLimit, parsedOffset, homeDir);
         
         // Handle both old and new response formats
         if (Array.isArray(result)) {
@@ -394,7 +412,7 @@ app.get('/api/projects/:projectName/sessions/:sessionId/messages', authenticateT
 app.put('/api/projects/:projectName/rename', authenticateToken, async (req, res) => {
     try {
         const { displayName } = req.body;
-        await renameProject(req.params.projectName, displayName);
+        await renameProject(req.params.projectName, displayName, getUserHome(req));
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -406,7 +424,7 @@ app.delete('/api/projects/:projectName/sessions/:sessionId', authenticateToken, 
     try {
         const { projectName, sessionId } = req.params;
         console.log(`[API] Deleting session: ${sessionId} from project: ${projectName}`);
-        await deleteSession(projectName, sessionId);
+        await deleteSession(projectName, sessionId, getUserHome(req));
         console.log(`[API] Session ${sessionId} deleted successfully`);
         res.json({ success: true });
     } catch (error) {
@@ -420,7 +438,7 @@ app.delete('/api/projects/:projectName', authenticateToken, async (req, res) => 
     try {
         const { projectName } = req.params;
         const force = req.query.force === 'true';
-        await deleteProject(projectName, force);
+        await deleteProject(projectName, force, getUserHome(req));
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -436,7 +454,7 @@ app.post('/api/projects/create', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Project path is required' });
         }
 
-        const project = await addProjectManually(projectPath.trim());
+        const project = await addProjectManually(projectPath.trim(), getUserHome(req));
         res.json({ success: true, project });
     } catch (error) {
         console.error('Error creating project:', error);

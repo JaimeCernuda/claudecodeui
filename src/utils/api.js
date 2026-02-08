@@ -1,5 +1,8 @@
 import { IS_PLATFORM } from "../constants/config";
 
+// Extract Overleaf user ID from iframe URL params (set by claude-injector.js)
+const _overleafUserId = new URLSearchParams(window.location.search).get('user');
+
 // Utility function for authenticated API calls
 export const authenticatedFetch = (url, options = {}) => {
   const token = localStorage.getItem('auth-token');
@@ -13,6 +16,11 @@ export const authenticatedFetch = (url, options = {}) => {
 
   if (!IS_PLATFORM && token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
+
+  // In Overleaf mode, pass userId so the server uses per-user HOME for sessions
+  if (_overleafUserId) {
+    defaultHeaders['X-Overleaf-User-Id'] = _overleafUserId;
   }
 
   return fetch(url, {

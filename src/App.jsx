@@ -46,6 +46,12 @@ function AppContent() {
   const { ws, sendMessage, latestMessage } = useWebSocket();
   const loadingProgressTimeoutRef = useRef(null);
 
+  // Detect Overleaf mode from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const overleafProjectId = urlParams.get('project');
+  const overleafUserId = urlParams.get('user');
+  const isOverleafMode = !!overleafProjectId;
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -123,24 +129,9 @@ function AppContent() {
         return;
       }
 
-      if (latestMessage.type === 'projects_updated') {
-        const updatedProjects = latestMessage.projects;
-        setProjects(updatedProjects);
-
-        if (selectedProject) {
-          const updatedSelectedProject = updatedProjects.find(p => p.name === selectedProject.name);
-          if (updatedSelectedProject) {
-            if (JSON.stringify(updatedSelectedProject) !== JSON.stringify(selectedProject)) {
-              setSelectedProject(updatedSelectedProject);
-            }
-            if (selectedSession) {
-              const updatedSelectedSession = updatedSelectedProject.sessions?.find(s => s.id === selectedSession.id);
-              if (!updatedSelectedSession) {
-                setSelectedSession(null);
-              }
-            }
-          }
-        }
+      if (latestMessage.type === 'projects_updated' || latestMessage.type === 'projects_refresh') {
+        // Re-fetch projects for proper per-user isolation
+        fetchProjects();
       }
     }
 
@@ -286,6 +277,11 @@ function AppContent() {
     );
   };
 
+  // In Overleaf mode, only show the current project in the sidebar
+  const displayProjects = isOverleafMode && selectedProject
+    ? projects.filter(p => p.fullPath === selectedProject.fullPath)
+    : projects;
+
   return (
     <div className="fixed inset-0 flex bg-background">
       {/* Desktop Sidebar */}
@@ -298,7 +294,7 @@ function AppContent() {
           <div className="h-full overflow-hidden">
             {sidebarVisible ? (
               <Sidebar
-                projects={projects}
+                projects={displayProjects}
                 selectedProject={selectedProject}
                 selectedSession={selectedSession}
                 onProjectSelect={handleProjectSelect}
@@ -361,7 +357,7 @@ function AppContent() {
             onClick={(e) => e.stopPropagation()}
           >
             <Sidebar
-              projects={projects}
+              projects={displayProjects}
               selectedProject={selectedProject}
               selectedSession={selectedSession}
               onProjectSelect={handleProjectSelect}
