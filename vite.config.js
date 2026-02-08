@@ -8,6 +8,7 @@ export default defineConfig(({ command, mode }) => {
   
   return {
     plugins: [react()],
+    base: env.VITE_BASE_PATH || '/',
     server: {
       port: parseInt(env.VITE_PORT) || 5173,
       proxy: {

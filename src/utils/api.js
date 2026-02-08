@@ -1,5 +1,11 @@
 import { IS_PLATFORM } from "../constants/config";
 
+// Base path for API/resource URLs (set by Vite's base config, e.g. '/claude-ui/')
+const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+
+/** Prefix a root-relative path with the base path (no-op when base is '/') */
+export const prefixUrl = (url) => url.startsWith('/') ? `${BASE_PATH}${url}` : url;
+
 // Extract Overleaf user ID from iframe URL params (set by claude-injector.js)
 const _overleafUserId = new URLSearchParams(window.location.search).get('user');
 
@@ -23,7 +29,7 @@ export const authenticatedFetch = (url, options = {}) => {
     defaultHeaders['X-Overleaf-User-Id'] = _overleafUserId;
   }
 
-  return fetch(url, {
+  return fetch(prefixUrl(url), {
     ...options,
     headers: {
       ...defaultHeaders,
@@ -36,13 +42,13 @@ export const authenticatedFetch = (url, options = {}) => {
 export const api = {
   // Auth endpoints (no token required)
   auth: {
-    status: () => fetch('/api/auth/status'),
-    login: (username, password) => fetch('/api/auth/login', {
+    status: () => fetch(prefixUrl('/api/auth/status')),
+    login: (username, password) => fetch(prefixUrl('/api/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     }),
-    register: (username, password) => fetch('/api/auth/register', {
+    register: (username, password) => fetch(prefixUrl('/api/auth/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),

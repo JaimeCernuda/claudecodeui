@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { IS_PLATFORM } from '../constants/config';
+import { prefixUrl } from '../utils/api';
 
 type WebSocketContextType = {
   ws: WebSocket | null;
@@ -21,9 +22,10 @@ export const useWebSocket = () => {
 
 const buildWebSocketUrl = (token: string | null) => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  if (IS_PLATFORM) return `${protocol}//${window.location.host}/ws`; // Platform mode: Use same domain as the page (goes through proxy)
+  const wsPath = prefixUrl('/ws');
+  if (IS_PLATFORM) return `${protocol}//${window.location.host}${wsPath}`;
   if (!token) return null;
-  return `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`; // OSS mode: Use same host:port that served the page
+  return `${protocol}//${window.location.host}${wsPath}?token=${encodeURIComponent(token)}`;
 };
 
 const useWebSocketProviderState = (): WebSocketContextType => {

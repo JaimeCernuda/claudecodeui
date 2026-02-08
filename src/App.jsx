@@ -428,7 +428,7 @@ function App() {
       <AuthProvider>
         <WebSocketProvider>
           <ProtectedRoute>
-            <Router basename={window.__ROUTER_BASENAME__ || ''}>
+            <Router basename={window.__ROUTER_BASENAME__ || (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || ''}>
               <Routes>
                 <Route path="/" element={<AppContent />} />
                 <Route path="/session/:sessionId" element={<AppContent />} />

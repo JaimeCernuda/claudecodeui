@@ -6,6 +6,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useTranslation } from 'react-i18next';
 import { IS_PLATFORM } from '../constants/config';
+import { prefixUrl } from '../utils/api';
 
 const xtermStyles = `
   .xterm .xterm-screen {
@@ -67,7 +68,8 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
 
       if (IS_PLATFORM) {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsUrl = `${protocol}//${window.location.host}/shell`;
+        const wsPath = prefixUrl('/shell');
+        wsUrl = `${protocol}//${window.location.host}${wsPath}`;
       } else {
         const token = localStorage.getItem('auth-token');
         if (!token) {
@@ -76,7 +78,8 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
         }
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsUrl = `${protocol}//${window.location.host}/shell?token=${encodeURIComponent(token)}`;
+        const wsPath = prefixUrl('/shell');
+        wsUrl = `${protocol}//${window.location.host}${wsPath}?token=${encodeURIComponent(token)}`;
       }
 
       ws.current = new WebSocket(wsUrl);
