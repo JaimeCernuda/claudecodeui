@@ -69,7 +69,7 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    fetchProjects();
+    fetchProjects(true);
   }, []);
 
   // Auto-select project based on Overleaf ?project= URL parameter
@@ -148,11 +148,11 @@ function AppContent() {
         loadingProgressTimeoutRef.current = null;
       }
     };
-  }, [latestMessage, selectedProject, selectedSession]);
+  }, [latestMessage]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (showLoading = false) => {
     try {
-      setIsLoadingProjects(true);
+      if (showLoading) setIsLoadingProjects(true);
       const response = await api.projects();
       const data = await response.json();
 
@@ -394,9 +394,6 @@ function AppContent() {
           selectedSession={selectedSession}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          ws={ws}
-          sendMessage={sendMessage}
-          latestMessage={latestMessage}
           isMobile={isMobile}
           onMenuClick={() => setSidebarOpen(true)}
           isLoading={isLoadingProjects}
