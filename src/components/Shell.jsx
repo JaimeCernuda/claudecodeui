@@ -93,7 +93,7 @@ function Shell({ selectedProject, selectedSession, initialCommand, isPlainShell 
               type: 'init',
               projectPath: selectedProjectRef.current.fullPath || selectedProjectRef.current.path,
               sessionId: isPlainShellRef.current ? null : selectedSessionRef.current?.id,
-              hasSession: isPlainShellRef.current ? false : !!selectedSessionRef.current,
+              hasSession: isPlainShellRef.current ? false : (!!selectedSessionRef.current && !selectedSessionRef.current.isNew),
               provider: isPlainShellRef.current ? 'plain-shell' : (selectedSessionRef.current?.__provider || 'claude'),
               cols: terminal.current.cols,
               rows: terminal.current.rows,

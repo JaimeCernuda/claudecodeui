@@ -211,7 +211,10 @@ function AppContent() {
 
   const handleNewSession = (project) => {
     setSelectedProject(project);
-    setSelectedSession(null);
+    // Unique marker so each "New Session" gets its own PTY cache key.
+    // Without this, all new sessions share key `..._default` and reconnect
+    // to the first PTY instead of spawning a fresh Claude CLI.
+    setSelectedSession({ id: `new-${Date.now()}`, isNew: true });
     setActiveTab('terminal');
     navigate('/');
     if (isMobile) setSidebarOpen(false);
