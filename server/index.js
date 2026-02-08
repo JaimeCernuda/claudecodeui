@@ -1051,6 +1051,8 @@ function handleShellConnection(ws) {
                         env: {
                             ...process.env,
                             HOME: userHome,
+                            // Ensure claude CLI is reachable from per-user HOME
+                            PATH: `${userHome}/.local/bin:/root/.local/bin:${process.env.PATH || ''}`,
                             TERM: 'xterm-256color',
                             COLORTERM: 'truecolor',
                             FORCE_COLOR: '3',
