@@ -1,12 +1,13 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { prefixUrl } from '../utils/api';
 
 const CodexLogo = ({ className = 'w-5 h-5' }) => {
   const { isDarkMode } = useTheme();
 
   return (
     <img
-      src={isDarkMode ? "/icons/codex-white.svg" : "/icons/codex.svg"}
+      src={prefixUrl(isDarkMode ? "/icons/codex-white.svg" : "/icons/codex.svg")}
       alt="Codex"
       className={className}
     />
